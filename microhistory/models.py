@@ -247,3 +247,4 @@ class PipelineConfig(BaseModel):
     render: bool = False
     output_dir: Path = Path("output")
     assets_dir: Optional[Path] = None  # optional folder of paid/stock assets
+    auto: bool = False  # full automation: generate visuals + TTS + render

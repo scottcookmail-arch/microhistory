@@ -66,6 +66,8 @@ def run_pipeline(config: PipelineConfig) -> Path:
     from microhistory.editor_ffmpeg import run_editor
     from microhistory.metadata_generator import generate_metadata, write_metadata
     from microhistory.scheduler import generate_schedule, write_schedule
+    from microhistory.visual_generator import run_visual_generator
+    from microhistory.tts_generator import run_tts
 
     slug = _slugify(config.topic)
     output_dir = config.output_dir / slug
@@ -113,13 +115,36 @@ def run_pipeline(config: PipelineConfig) -> Path:
     console.rule("[bold blue]5. Voiceover Packaging")
     write_voiceover(script, output_dir)
 
+    # ---- 5b. AI Visual Generation (--auto) ----
+    if config.auto:
+        console.rule("[bold magenta]5b. AI Visual Generation (Gemini Imagen)")
+        try:
+            generated = run_visual_generator(output_dir)
+            console.print(f"  [green]Generated {len(generated)} images[/]")
+        except RuntimeError as exc:
+            console.print(f"  [yellow]Skipping visual generation: {exc}[/]")
+
+    # ---- 5c. TTS Narration (--auto) ----
+    if config.auto:
+        console.rule("[bold magenta]5c. TTS Narration (ElevenLabs)")
+        try:
+            audio_files = run_tts(output_dir)
+            console.print(f"  [green]Generated {len(audio_files)} audio files[/]")
+        except RuntimeError as exc:
+            console.print(f"  [yellow]Skipping TTS: {exc}[/]")
+
     # ---- 6. Editor ----
     console.rule("[bold blue]6. Editor / Timeline")
     assets_dir = config.assets_dir or output_dir / "assets"
+    # If --auto was used, also look in the generated assets folder
+    if config.auto and not config.assets_dir:
+        generated_dir = output_dir / "assets" / "generated"
+        if generated_dir.exists() and any(generated_dir.iterdir()):
+            assets_dir = generated_dir
     run_editor(
         script, storyboard, output_dir,
         num_shorts=config.num_shorts,
-        render=config.render,
+        render=config.render or config.auto,
         assets_dir=assets_dir,
     )
 
@@ -240,6 +265,11 @@ def cli() -> None:
         "--assets_dir", type=str, default=None,
         help="Directory containing stock/paid assets to use.",
     )
+    parser.add_argument(
+        "--auto", action="store_true", default=False,
+        help="Full automation: generate visuals (Gemini) + narration (ElevenLabs) + render. "
+             "Requires GOOGLE_API_KEY and ELEVENLABS_API_KEY env vars.",
+    )
 
     args = parser.parse_args()
 
@@ -251,6 +281,7 @@ def cli() -> None:
         render=args.render.lower() in ("true", "1", "yes"),
         output_dir=Path(args.output_dir),
         assets_dir=Path(args.assets_dir) if args.assets_dir else None,
+        auto=args.auto,
     )
 
     try:
