@@ -11,6 +11,8 @@ import re
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -233,6 +235,8 @@ def _print_summary(output_dir: Path) -> None:
 
 def cli() -> None:
     """CLI entry point."""
+    load_dotenv()
+
     parser = argparse.ArgumentParser(
         prog="microhistory",
         description="MicroHistory – Faceless YouTube Channel Production Pipeline",
