@@ -37,6 +37,9 @@ _LOC_API = "https://www.loc.gov/search/"
 _IA_API = "https://archive.org/advancedsearch.php"
 
 _TIMEOUT = httpx.Timeout(30.0)
+_HEADERS = {
+    "User-Agent": "MicroHistory/0.1.0 (https://github.com/microhistory; educational project)",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -371,12 +374,20 @@ def research_topic(
     """
     log.info("[bold]Starting research for topic: [cyan]%s[/cyan][/]", topic)
 
-    with httpx.Client(follow_redirects=True) as client:
+    with httpx.Client(follow_redirects=True, headers=_HEADERS) as client:
         # 1. Wikipedia
-        summary, facts, timeline = fetch_wikipedia_summary(topic, client)
+        try:
+            summary, facts, timeline = fetch_wikipedia_summary(topic, client)
+        except httpx.HTTPError as exc:
+            log.warning("Wikipedia fetch failed: %s", exc)
+            summary, facts, timeline = "", [], []
 
         # 2. Wikimedia Commons
-        commons = fetch_commons_assets(topic, client)
+        try:
+            commons = fetch_commons_assets(topic, client)
+        except httpx.HTTPError as exc:
+            log.warning("Commons fetch failed: %s", exc)
+            commons = []
 
         # 3. Library of Congress
         loc = fetch_loc_assets(topic, client)
