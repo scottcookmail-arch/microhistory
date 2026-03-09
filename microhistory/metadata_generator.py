@@ -238,3 +238,108 @@ def write_metadata(metadata: EpisodeMetadata, output_dir: Path) -> None:
     )
 
     log.info("Wrote metadata files to %s", meta_dir)
+
+
+# ---------------------------------------------------------------------------
+# Shorts-specific SEO
+# ---------------------------------------------------------------------------
+
+_SHORTS_TITLE_TEMPLATES = [
+    "This {topic} story will blow your mind",
+    "The {topic} mystery nobody can explain",
+    "{topic}: the strangest event in history",
+    "You won't believe what happened at {topic}",
+    "The dark truth about {topic}",
+    "History's most bizarre moment: {topic}",
+    "{topic} — wait for the ending",
+    "Why does nobody talk about {topic}?",
+]
+
+_SHORTS_HASHTAGS = [
+    "#history", "#shorts", "#historyfacts", "#mystery",
+    "#didyouknow", "#darkhistory", "#historytok", "#strange",
+    "#microhistory", "#truecrime", "#unsolved", "#mindblowing",
+    "#education", "#historical", "#fyp",
+]
+
+
+def generate_shorts_seo(
+    topic: str,
+    script_text: str = "",
+) -> "ShortsSEO":
+    """Generate SEO metadata optimised for YouTube Shorts discovery."""
+    from microhistory.models import ShortsSEO
+    import hashlib
+
+    log.info("[bold]Generating Shorts SEO for [cyan]%s[/cyan][/]", topic)
+
+    # Pick a title deterministically based on topic
+    idx = int(hashlib.md5(topic.encode()).hexdigest(), 16) % len(_SHORTS_TITLE_TEMPLATES)
+    title = _SHORTS_TITLE_TEMPLATES[idx].format(topic=topic)
+
+    # Ensure title is under 100 chars (YouTube Shorts best practice)
+    if len(title) > 95:
+        title = title[:92] + "..."
+
+    # Description: short, keyword-rich, with hashtags at bottom
+    desc_body = script_text[:150].strip() if script_text else f"The incredible story of {topic}."
+    if not desc_body.endswith((".", "!", "?")):
+        desc_body += "."
+
+    # Pick topic-relevant hashtags + generic ones
+    topic_words = [w.lower() for w in topic.split() if len(w) > 3]
+    topic_hashtags = [f"#{w}" for w in topic_words[:3]]
+
+    # Combine: topic hashtags first, then generic
+    all_hashtags = topic_hashtags + _SHORTS_HASHTAGS
+    # Deduplicate while preserving order
+    seen: set[str] = set()
+    unique_hashtags: list[str] = []
+    for h in all_hashtags:
+        h_lower = h.lower()
+        if h_lower not in seen:
+            seen.add(h_lower)
+            unique_hashtags.append(h)
+
+    hashtags = unique_hashtags[:15]
+
+    description = f"{desc_body}\n\n{' '.join(hashtags)}"
+
+    # Tags for the upload
+    tags = [
+        topic.lower(),
+        f"{topic.lower()} history",
+        f"{topic.lower()} mystery",
+        "history shorts",
+        "micro history",
+        "strange history",
+        "historical mystery",
+        "dark history",
+        "did you know",
+        "history facts",
+    ]
+    # Add individual topic words
+    for w in topic_words:
+        if w not in tags:
+            tags.append(w)
+
+    seo = ShortsSEO(
+        title=title,
+        description=description,
+        hashtags=hashtags,
+        tags=tags[:30],
+    )
+
+    log.info("[bold green]Shorts SEO generated[/] – title: %s", title[:60])
+    return seo
+
+
+def write_shorts_seo(seo: "ShortsSEO", path: Path) -> None:
+    """Write Shorts SEO metadata to a JSON file."""
+    import json
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(seo.model_dump(), indent=2),
+        encoding="utf-8",
+    )
+    log.info("Wrote %s", path)

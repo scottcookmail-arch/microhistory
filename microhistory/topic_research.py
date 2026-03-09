@@ -431,3 +431,163 @@ def write_sources_json(result: ResearchResult, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(result.model_dump_json(indent=2), encoding="utf-8")
     log.info("Wrote %s", path)
+
+
+# ---------------------------------------------------------------------------
+# Strange / unusual event discovery for Shorts
+# ---------------------------------------------------------------------------
+
+# Wikipedia categories rich in strange, viral-worthy historical events
+_STRANGE_EVENT_CATEGORIES = [
+    "Unsolved_deaths",
+    "Hoaxes_in_science",
+    "Mass_hysteria",
+    "Unexplained_disappearances",
+    "Historical_mysteries",
+    "Ancient_unsolved_mysteries",
+    "Military_scandals",
+    "Conspiracy_theories",
+    "Anomalous_experiences",
+    "Maritime_mysteries",
+    "Curses",
+    "Archaeological_discoveries",
+    "Lost_cities",
+    "Unusual_deaths",
+    "History_of_espionage",
+]
+
+# Curated seed list of strange events with high Shorts potential
+_SEED_STRANGE_EVENTS: list[dict[str, str]] = [
+    {"topic": "Dancing plague of 1518", "date": "1518", "hook": "An entire city danced itself to death."},
+    {"topic": "Great Molasses Flood", "date": "1919", "hook": "A 25-foot wave of molasses killed 21 people."},
+    {"topic": "Tunguska event", "date": "1908", "hook": "Something flattened 80 million trees — and nobody knows what."},
+    {"topic": "Dyatlov Pass incident", "date": "1959", "hook": "Nine hikers died in the most bizarre way imaginable."},
+    {"topic": "The Wow! signal", "date": "1977", "hook": "We may have heard from aliens — once."},
+    {"topic": "Voynich manuscript", "date": "1400s", "hook": "A book no one can read has baffled experts for 600 years."},
+    {"topic": "Lead masks of Vintem Hill", "date": "1966", "hook": "Two men were found dead wearing homemade lead masks."},
+    {"topic": "Taos Hum", "date": "1990s", "hook": "A town heard a hum that no machine could find."},
+    {"topic": "Sailing stones", "date": "ongoing", "hook": "Rocks that move on their own across the desert."},
+    {"topic": "Mary Celeste", "date": "1872", "hook": "A ghost ship found drifting with no crew — but dinner still on the table."},
+    {"topic": "Flannan Isles mystery", "date": "1900", "hook": "Three lighthouse keepers vanished without a trace."},
+    {"topic": "Spring Heeled Jack", "date": "1837", "hook": "A fire-breathing figure terrorized Victorian London."},
+    {"topic": "The Hinterkaifeck murders", "date": "1922", "hook": "Someone lived in the family's attic before killing them all."},
+    {"topic": "Amber Room", "date": "1941", "hook": "The Nazis stole a room made of 6 tons of amber — it was never found."},
+    {"topic": "Codex Gigas", "date": "1200s", "hook": "A monk allegedly wrote this giant book in one night — with the Devil's help."},
+    {"topic": "Phaistos Disc", "date": "1700 BC", "hook": "A 3,700-year-old disc covered in symbols no one can decode."},
+    {"topic": "Roanoke Colony", "date": "1590", "hook": "117 colonists disappeared and left only one word behind: CROATOAN."},
+    {"topic": "The Green Children of Woolpit", "date": "1100s", "hook": "Two green-skinned children appeared in an English village from nowhere."},
+    {"topic": "Eruption of Mount Tambora", "date": "1815", "hook": "A volcano erased summer for an entire year."},
+    {"topic": "Baghdad Battery", "date": "200 BC", "hook": "Someone may have invented the battery 2,000 years early."},
+    {"topic": "Antikythera mechanism", "date": "100 BC", "hook": "An ancient Greek computer that shouldn't exist."},
+    {"topic": "London Beer Flood", "date": "1814", "hook": "A tidal wave of beer destroyed an entire neighborhood."},
+    {"topic": "Emu War", "date": "1932", "hook": "Australia went to war against emus — and lost."},
+    {"topic": "The Kentucky meat shower", "date": "1876", "hook": "Chunks of meat fell from a clear sky in Kentucky."},
+    {"topic": "Bloop (sound)", "date": "1997", "hook": "The ocean made a sound so loud it was heard 5,000 km away."},
+    {"topic": "SS Ourang Medan", "date": "1947", "hook": "Every crew member was found dead — frozen in terror."},
+    {"topic": "Cicada 3301", "date": "2012", "hook": "The internet's most mysterious puzzle — and nobody knows who made it."},
+    {"topic": "Numbers stations", "date": "1960s", "hook": "Secret radio stations broadcasting coded messages to spies — still running today."},
+    {"topic": "Great Emu War", "date": "1932", "hook": "The Australian military lost a war to birds."},
+    {"topic": "The Man from Taured", "date": "1954", "hook": "A man arrived at an airport from a country that doesn't exist."},
+]
+
+
+def discover_strange_events(
+    count: int = 5,
+    exclude_topics: Optional[list[str]] = None,
+) -> list[dict[str, str]]:
+    """Return a list of strange historical event dicts from the seed bank
+    and Wikipedia category pages.
+
+    Each dict has keys: ``topic``, ``date``, ``hook``.
+    """
+    import random
+
+    exclude = set(t.lower() for t in (exclude_topics or []))
+    pool = [
+        e for e in _SEED_STRANGE_EVENTS
+        if e["topic"].lower() not in exclude
+    ]
+
+    # Supplement with Wikipedia category scraping
+    with httpx.Client(follow_redirects=True, headers=_HEADERS) as client:
+        extra = _fetch_category_members(client, count=count * 2)
+        for title in extra:
+            if title.lower() not in exclude and not any(
+                e["topic"].lower() == title.lower() for e in pool
+            ):
+                pool.append({
+                    "topic": title,
+                    "date": "",
+                    "hook": "",
+                })
+
+    random.shuffle(pool)
+    return pool[:count]
+
+
+def _fetch_category_members(
+    client: httpx.Client,
+    count: int = 20,
+) -> list[str]:
+    """Fetch article titles from random Wikipedia strange-event categories."""
+    import random
+
+    cats = random.sample(
+        _STRANGE_EVENT_CATEGORIES,
+        min(3, len(_STRANGE_EVENT_CATEGORIES)),
+    )
+    titles: list[str] = []
+
+    for cat in cats:
+        params = {
+            "action": "query",
+            "list": "categorymembers",
+            "cmtitle": f"Category:{cat}",
+            "cmlimit": "20",
+            "cmtype": "page",
+            "format": "json",
+        }
+        try:
+            resp = client.get(_WIKIPEDIA_API, params=params, timeout=_TIMEOUT)
+            resp.raise_for_status()
+            members = resp.json().get("query", {}).get("categorymembers", [])
+            for m in members:
+                title = m.get("title", "")
+                if title and ":" not in title:
+                    titles.append(title)
+        except httpx.HTTPError as exc:
+            log.warning("Category fetch failed for %s: %s", cat, exc)
+
+        if len(titles) >= count:
+            break
+
+    return titles[:count]
+
+
+def research_short_topic(topic: str) -> ResearchResult:
+    """Lightweight research pass for a single Shorts episode.
+
+    Fetches Wikipedia summary (trimmed) and a few Wikimedia Commons assets.
+    Faster than the full ``research_topic`` since Shorts only need 120 words.
+    """
+    log.info("[bold]Quick research for Short: [cyan]%s[/cyan][/]", topic)
+
+    with httpx.Client(follow_redirects=True, headers=_HEADERS) as client:
+        try:
+            summary, facts, timeline = fetch_wikipedia_summary(topic, client)
+        except httpx.HTTPError:
+            summary, facts, timeline = "", [], []
+
+        try:
+            commons = fetch_commons_assets(topic, client, limit=5)
+        except httpx.HTTPError:
+            commons = []
+
+    safe = [a for a in commons if a.is_commercial_safe]
+    return ResearchResult(
+        topic=topic,
+        summary=summary[:800],
+        facts=facts[:10],
+        assets=safe,
+        timeline=timeline[:5],
+    )

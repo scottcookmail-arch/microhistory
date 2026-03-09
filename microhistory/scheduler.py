@@ -254,3 +254,87 @@ def write_schedule(schedule: Schedule, output_dir: Path) -> None:
     )
 
     log.info("Wrote scheduling files to %s", sched_dir)
+
+
+# ---------------------------------------------------------------------------
+# Daily Shorts scheduling
+# ---------------------------------------------------------------------------
+
+def generate_daily_shorts_schedule(
+    topics: list[str],
+    days: int = 30,
+    posts_per_day: int = 1,
+) -> Schedule:
+    """Generate a daily YouTube Shorts posting schedule.
+
+    Creates a calendar entry for each day with optimal posting times
+    and topic rotation across the provided topics list.
+    """
+    log.info(
+        "[bold]Generating daily Shorts schedule – %d topics, %d days[/]",
+        len(topics), days,
+    )
+
+    # Best posting times for Shorts (EST)
+    optimal_times = ["08:00", "12:00", "17:00", "19:00"]
+    start_date = datetime.now()
+    entries: list[CalendarEntry] = []
+    topic_idx = 0
+
+    for day_offset in range(days):
+        current = start_date + timedelta(days=day_offset)
+        date_str = current.strftime("%Y-%m-%d")
+
+        for post_num in range(posts_per_day):
+            topic = topics[topic_idx % len(topics)]
+            time_slot = optimal_times[post_num % len(optimal_times)]
+
+            entries.append(CalendarEntry(
+                date=date_str,
+                time=time_slot,
+                video_type=VideoType.SHORT,
+                topic=topic,
+                title_draft=f"#{topic_idx + 1}: {topic}",
+                cta="Follow for daily history! Full story in bio.",
+                asset_notes=f"Daily Short #{topic_idx + 1}",
+            ))
+            topic_idx += 1
+
+    recommendation = textwrap.dedent(f"""\
+        # Daily Shorts Schedule
+
+        ## Strategy
+        - Post {posts_per_day} Short(s) per day at optimal times
+        - Rotate through {len(topics)} pre-researched topics
+        - Optimal posting times: {', '.join(optimal_times[:posts_per_day])} EST
+        - Consistency > volume: never miss a day
+
+        ## Growth Tips for Shorts
+        1. First 3 seconds determine 90% of retention — always open with a hook
+        2. Use animated word-by-word subtitles (already built into the pipeline)
+        3. End with a question or cliffhanger to drive comments
+        4. Pin a comment asking viewers to guess what happens next
+        5. Cross-promote: link to longform episodes in your channel
+
+        ## Hashtag Strategy
+        - Always include #history #shorts #didyouknow
+        - Add 2-3 topic-specific hashtags
+        - Rotate trending hashtags weekly
+
+        ## Analytics Checkpoints
+        - Day 7: Check which topics get >50% avg view duration
+        - Day 14: Double down on top-performing topic categories
+        - Day 30: Review subscriber growth rate and plan next month
+    """)
+
+    schedule = Schedule(
+        recommendation_md=recommendation,
+        calendar=entries,
+        checklist_md=_generate_checklist(),
+    )
+
+    log.info(
+        "[bold green]Daily Shorts schedule generated[/] – %d entries over %d days",
+        len(entries), days,
+    )
+    return schedule

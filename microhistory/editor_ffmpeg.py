@@ -388,3 +388,207 @@ def run_editor(
         "[bold green]Editor complete[/] – longform + %d shorts processed",
         len(shorts_packs),
     )
+
+
+# ---------------------------------------------------------------------------
+# Shorts-specific assembly: 40s vertical video with animated subtitles
+# ---------------------------------------------------------------------------
+
+def generate_animated_srt(
+    text: str,
+    max_duration_sec: float = 40.0,
+    words_per_caption: int = 3,
+) -> str:
+    """Generate SRT captions optimised for Shorts retention.
+
+    Uses short bursts of 2-3 words per caption for the animated
+    word-by-word style popular on TikTok/Shorts.
+    """
+    words = text.split()
+    total_words = len(words)
+    if total_words == 0:
+        return ""
+
+    wps = total_words / max_duration_sec if max_duration_sec > 0 else 3.0
+    srt_lines: list[str] = []
+    cap_num = 0
+    word_idx = 0
+    current_sec = 0.0
+
+    while word_idx < total_words:
+        cap_num += 1
+        chunk = words[word_idx : word_idx + words_per_caption]
+        chunk_text = " ".join(chunk)
+        duration = len(chunk) / wps
+        end_sec = current_sec + duration
+
+        srt_lines.append(str(cap_num))
+        srt_lines.append(f"{_srt_time(current_sec)} --> {_srt_time(end_sec)}")
+        srt_lines.append(chunk_text.upper())  # uppercase for retention style
+        srt_lines.append("")
+
+        current_sec = end_sec
+        word_idx += words_per_caption
+
+    return "\n".join(srt_lines)
+
+
+def assemble_shorts_video(
+    clip_paths: list[Path],
+    audio_path: Optional[Path],
+    srt_path: Optional[Path],
+    output_path: Path,
+    target_duration: float = 40.0,
+) -> bool:
+    """Assemble video clips + voiceover + animated subtitles into a 9:16 Short.
+
+    Returns True on success.
+    """
+    if not ffmpeg_available():
+        log.warning("FFmpeg not found – cannot assemble Shorts video")
+        return False
+
+    if not clip_paths:
+        log.warning("No clips provided – cannot assemble Shorts video")
+        return False
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Calculate per-clip duration to fill target
+    clip_duration = target_duration / len(clip_paths)
+
+    # Build FFmpeg command
+    inputs: list[str] = []
+    filter_parts: list[str] = []
+    concat_parts: list[str] = []
+
+    for i, clip in enumerate(clip_paths):
+        ext = clip.suffix.lower()
+        if ext in {".jpg", ".jpeg", ".png", ".webp"}:
+            # Still image → loop for clip_duration
+            inputs.extend(["-loop", "1", "-t", f"{clip_duration:.2f}", "-i", str(clip)])
+        else:
+            # Video clip → trim to clip_duration
+            inputs.extend(["-t", f"{clip_duration:.2f}", "-i", str(clip)])
+
+        # Scale to 1080x1920 (9:16) with Ken Burns effect
+        filter_parts.append(
+            f"[{i}:v]scale=1200:2134,zoompan=z='min(zoom+0.0008,1.15)'"
+            f":d={int(clip_duration * 25)}:s=1080x1920:fps=25,"
+            f"setsar=1,format=yuv420p[v{i}]"
+        )
+        concat_parts.append(f"[v{i}]")
+
+    # Concat all clips with crossfade
+    n = len(clip_paths)
+    if n > 1:
+        # Build crossfade chain
+        fade_duration = 0.3
+        current = "[v0]"
+        for i in range(1, n):
+            offset = clip_duration * i - fade_duration * i
+            out_label = f"[xf{i}]" if i < n - 1 else "[outv]"
+            filter_parts.append(
+                f"{current}[v{i}]xfade=transition=fade:duration={fade_duration}"
+                f":offset={offset:.2f}{out_label}"
+            )
+            current = out_label
+    else:
+        filter_parts.append(f"[v0]copy[outv]")
+
+    # Audio input
+    audio_input_idx = n
+    if audio_path and audio_path.exists():
+        inputs.extend(["-i", str(audio_path)])
+
+    filter_complex = ";".join(filter_parts)
+
+    cmd = [
+        "ffmpeg", "-y",
+        *inputs,
+        "-filter_complex", filter_complex,
+        "-map", "[outv]",
+    ]
+
+    if audio_path and audio_path.exists():
+        cmd.extend(["-map", f"{audio_input_idx}:a", "-c:a", "aac", "-b:a", "256k"])
+
+    # Burn in subtitles if SRT exists
+    if srt_path and srt_path.exists():
+        # We need to apply subtitles as a second pass since filter_complex is complex
+        # Instead, we'll use a two-pass approach via temp file
+        temp_path = output_path.parent / f"_temp_{output_path.name}"
+        cmd.extend([
+            "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+            "-pix_fmt", "yuv420p",
+            "-t", f"{target_duration:.2f}",
+            str(temp_path),
+        ])
+
+        log.info("Rendering Shorts video (pass 1: assembly) → %s", temp_path)
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            if result.returncode != 0:
+                log.warning("FFmpeg assembly failed: %s", (result.stderr or "")[-500:])
+                return False
+        except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+            log.warning("FFmpeg assembly error: %s", exc)
+            return False
+
+        # Pass 2: burn subtitles with animated style
+        srt_escaped = str(srt_path).replace(":", "\\:").replace("'", "\\'")
+        subtitle_filter = (
+            f"subtitles='{srt_escaped}':force_style='"
+            f"FontName=Arial Black,FontSize=22,PrimaryColour=&H00FFFFFF,"
+            f"OutlineColour=&H00000000,BackColour=&H80000000,"
+            f"BorderStyle=3,Outline=2,Shadow=1,"
+            f"Alignment=2,MarginV=80'"
+        )
+
+        sub_cmd = [
+            "ffmpeg", "-y",
+            "-i", str(temp_path),
+            "-vf", subtitle_filter,
+            "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+            "-c:a", "copy",
+            "-pix_fmt", "yuv420p",
+            str(output_path),
+        ]
+
+        log.info("Rendering Shorts video (pass 2: subtitles) → %s", output_path)
+        try:
+            result = subprocess.run(sub_cmd, capture_output=True, text=True, timeout=300)
+            temp_path.unlink(missing_ok=True)
+            if result.returncode != 0:
+                log.warning("FFmpeg subtitle burn failed: %s", (result.stderr or "")[-500:])
+                # Fall back to video without subtitles
+                if temp_path.exists():
+                    temp_path.rename(output_path)
+                return output_path.exists()
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            temp_path.unlink(missing_ok=True)
+            return False
+    else:
+        # No subtitles — single pass
+        cmd.extend([
+            "-c:v", "libx264", "-preset", "fast", "-crf", "20",
+            "-pix_fmt", "yuv420p",
+            "-t", f"{target_duration:.2f}",
+            str(output_path),
+        ])
+
+        log.info("Rendering Shorts video → %s", output_path)
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            if result.returncode != 0:
+                log.warning("FFmpeg render failed: %s", (result.stderr or "")[-500:])
+                return False
+        except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+            log.warning("FFmpeg error: %s", exc)
+            return False
+
+    if output_path.exists():
+        size_mb = output_path.stat().st_size / 1_000_000
+        log.info("[bold green]Shorts video rendered[/] → %s (%.1f MB)", output_path, size_mb)
+        return True
+    return False

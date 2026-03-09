@@ -13,6 +13,17 @@ A local production pipeline for faceless YouTube history channels. Given a topic
 - **YouTube Metadata** – 10 title options, descriptions, tags, chapters, thumbnail briefs
 - **Scheduling** – 30-day upload calendar, strategy recommendations, posting checklist
 
+### YouTube Shorts Automation (New)
+
+- **Strange Event Discovery** – Curated seed bank of 30+ viral-worthy events + Wikipedia category scraping
+- **120-Word Micro-Scripts** – Hook → Build → Reveal structure optimised for 40-second retention
+- **ElevenLabs Voiceover** – Automatic TTS narration with cinematic voice
+- **AI Video Clips** – 5 cinematic clips per Short via Veo3, Runway Gen-3, or Gemini Imagen
+- **Automated Assembly** – FFmpeg-powered 9:16 vertical video with crossfade transitions
+- **Animated Subtitles** – Word-by-word uppercase captions for maximum retention
+- **Shorts SEO** – Optimised titles, descriptions, and hashtags for discovery
+- **Daily Scheduling** – 30-day posting calendar with optimal time slots
+
 ## Requirements
 
 - Python 3.11+
@@ -26,6 +37,8 @@ pip install -e ".[dev]"
 
 ## Usage
 
+### Longform Episodes
+
 ```bash
 python -m microhistory.main \
   --topic "Dyatlov Pass incident" \
@@ -35,17 +48,40 @@ python -m microhistory.main \
   --render true
 ```
 
+### YouTube Shorts Pipeline
+
+```bash
+# Single Short from a specific topic
+python -m microhistory.main \
+  --shorts --topic "Dancing plague of 1518"
+
+# Auto-discover 3 strange events and produce daily Shorts
+python -m microhistory.main \
+  --shorts --topic auto --daily_count 3
+
+# Use Runway for video clips instead of Gemini images
+python -m microhistory.main \
+  --shorts --topic "Great Molasses Flood" --video_backend runway
+
+# Full automation with Veo3 video generation
+python -m microhistory.main \
+  --shorts --topic auto --daily_count 1 --video_backend veo3
+```
+
 ### CLI Options
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--topic` | *(required)* | Episode topic keyword |
+| `--topic` | *(required)* | Episode topic keyword (use `auto` in Shorts mode for discovery) |
 | `--length` | `9min` | Target video length (`9min`, `540`, `10min`) |
 | `--num_shorts` | `6` | Number of Shorts to generate |
 | `--download_assets` | `false` | Download archival assets locally |
 | `--render` | `false` | Render rough-cut MP4s (requires FFmpeg) |
 | `--output_dir` | `output` | Output directory |
 | `--assets_dir` | — | Directory with stock/paid assets |
+| `--shorts` | `false` | Run the YouTube Shorts automation pipeline |
+| `--daily_count` | `1` | Number of Shorts to produce per run (Shorts mode) |
+| `--video_backend` | `gemini_image` | Video generation backend: `runway`, `veo3`, or `gemini_image` |
 
 ## Output Structure
 
@@ -93,14 +129,18 @@ output/<topic_slug>/
 
 | Module | Purpose |
 |--------|---------|
-| `topic_research.py` | Gathers facts and licensed media via official APIs |
+| `topic_research.py` | Gathers facts and licensed media via official APIs; discovers strange events |
 | `scriptwriter.py` | Generates original cinematic narration with inline cues |
+| `shorts_scriptwriter.py` | Generates 120-word Hook→Build→Reveal scripts for Shorts |
 | `storyboard.py` | Maps script to timestamped shots (archival or AI-generated) |
 | `ai_prompt_generator.py` | Creates platform-specific prompt packs with continuity bible |
 | `voiceover_packager.py` | Extracts clean VO text, SSML, and pronunciation guide |
-| `editor_ffmpeg.py` | Builds timelines and optional FFmpeg rough cuts |
-| `metadata_generator.py` | Produces YouTube-ready titles, descriptions, tags, chapters |
-| `scheduler.py` | Generates upload calendar and posting checklist |
+| `tts_generator.py` | Converts text to speech via ElevenLabs API |
+| `visual_generator.py` | Generates images (Gemini Imagen) and video clips (Veo3/Runway) |
+| `editor_ffmpeg.py` | Builds timelines, rough cuts, and Shorts assembly with animated subtitles |
+| `metadata_generator.py` | Produces YouTube-ready titles, descriptions, tags, Shorts SEO |
+| `scheduler.py` | Generates upload calendar, posting checklist, and daily Shorts schedule |
+| `shorts_pipeline.py` | End-to-end Shorts automation orchestrator |
 
 ## Compliance
 

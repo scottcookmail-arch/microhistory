@@ -237,6 +237,49 @@ class Schedule(BaseModel):
 # Pipeline config
 # ---------------------------------------------------------------------------
 
+class ShortsScript(BaseModel):
+    """A 120-word cinematic micro-history script for YouTube Shorts."""
+
+    topic: str
+    hook: str = ""          # opening 1-2 sentences (~20 words)
+    build: str = ""         # middle section with the story (~70 words)
+    reveal: str = ""        # punchline / twist ending (~30 words)
+    total_word_count: int = 0
+    target_duration_sec: int = 40
+
+
+class ShortsVideoSpec(BaseModel):
+    """Spec for a single generated video clip within a Short."""
+
+    clip_number: int
+    duration_sec: float = 8.0
+    prompt: str = ""
+    camera_motion: str = "slow_push"
+    local_path: Optional[str] = None
+
+
+class ShortsSEO(BaseModel):
+    """SEO metadata for a YouTube Short."""
+
+    title: str = ""
+    description: str = ""
+    hashtags: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+
+
+class ShortsEpisode(BaseModel):
+    """Complete YouTube Shorts episode package."""
+
+    topic: str
+    event_date: str = ""
+    script: Optional[ShortsScript] = None
+    clips: list[ShortsVideoSpec] = Field(default_factory=list)
+    voiceover_path: Optional[str] = None
+    final_video_path: Optional[str] = None
+    captions_srt: str = ""
+    seo: Optional[ShortsSEO] = None
+
+
 class PipelineConfig(BaseModel):
     """Top-level configuration for a pipeline run."""
 
@@ -248,3 +291,5 @@ class PipelineConfig(BaseModel):
     output_dir: Path = Path("output")
     assets_dir: Optional[Path] = None  # optional folder of paid/stock assets
     auto: bool = False  # full automation: generate visuals + TTS + render
+    shorts_mode: bool = False  # dedicated Shorts pipeline mode
+    daily_count: int = 1  # number of Shorts to produce per run in shorts_mode

@@ -1,7 +1,11 @@
-"""MicroHistory CLI – Episode Pack Generator.
+"""MicroHistory CLI – Episode Pack Generator & YouTube Shorts Automation.
 
-Usage:
+Usage (longform):
     python main.py --topic "Dyatlov Pass incident" --length 9min --num_shorts 6
+
+Usage (Shorts mode):
+    python main.py --shorts --topic "Dancing plague of 1518"
+    python main.py --shorts --topic auto --daily_count 3 --video_backend runway
 """
 
 from __future__ import annotations
@@ -275,6 +279,23 @@ def cli() -> None:
              "Requires GOOGLE_API_KEY and ELEVENLABS_API_KEY env vars.",
     )
 
+    # Shorts mode arguments
+    parser.add_argument(
+        "--shorts", action="store_true", default=False,
+        help="Run the dedicated YouTube Shorts pipeline: discover strange events, "
+             "generate 120-word script, voiceover, 5 video clips, 40s vertical video, "
+             "animated subtitles, SEO metadata, and daily posting schedule.",
+    )
+    parser.add_argument(
+        "--daily_count", type=int, default=1,
+        help="Number of Shorts to produce per run (Shorts mode). Default: 1",
+    )
+    parser.add_argument(
+        "--video_backend", type=str, default="gemini_image",
+        choices=["runway", "veo3", "gemini_image"],
+        help="Video clip generation backend (Shorts mode). Default: gemini_image",
+    )
+
     args = parser.parse_args()
 
     config = PipelineConfig(
@@ -286,10 +307,16 @@ def cli() -> None:
         output_dir=Path(args.output_dir),
         assets_dir=Path(args.assets_dir) if args.assets_dir else None,
         auto=args.auto,
+        shorts_mode=args.shorts,
+        daily_count=args.daily_count,
     )
 
     try:
-        run_pipeline(config)
+        if config.shorts_mode:
+            from microhistory.shorts_pipeline import run_shorts_pipeline
+            run_shorts_pipeline(config, video_backend=args.video_backend)
+        else:
+            run_pipeline(config)
     except KeyboardInterrupt:
         console.print("\n[yellow]Pipeline interrupted by user.[/]")
         sys.exit(1)
