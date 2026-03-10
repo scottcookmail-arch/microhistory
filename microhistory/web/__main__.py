@@ -15,7 +15,7 @@ def main() -> None:
 
     app = create_app()
 
-    host = "127.0.0.1"
+    host = "0.0.0.0"
     port = 8000
     print(f"\n  MicroHistory Web UI: http://{host}:{port}\n")
 
