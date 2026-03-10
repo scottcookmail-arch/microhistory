@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}MicroHistory — Generate{% endblock %}
+
+{% block content %}
+<h2>Generate a Video</h2>
+
+<form id="generate-form">
+  <fieldset>
+    <label>
+      Topic
+      <input type="text" name="topic" placeholder="e.g. Dancing plague of 1518 (leave blank for auto-discover)" value="">
+    </label>
+
+    <label>
+      Mode
+      <select name="mode" id="mode-select">
+        <option value="shorts" selected>YouTube Shorts</option>
+        <option value="longform">Longform Episode</option>
+      </select>
+    </label>
+
+    <div id="shorts-options">
+      <label>
+        Video Backend
+        <select name="video_backend">
+          <option value="gemini_image" selected>Gemini Image</option>
+          <option value="veo3">Veo3</option>
+          <option value="runway">Runway</option>
+        </select>
+      </label>
+
+      <label>
+        Number of Shorts
+        <input type="number" name="daily_count" value="1" min="1" max="10">
+      </label>
+    </div>
+
+    <div id="longform-options" hidden>
+      <label>
+        Target Length
+        <select name="target_length">
+          <option value="9min" selected>9 minutes</option>
+          <option value="5min">5 minutes</option>
+          <option value="10min">10 minutes</option>
+          <option value="15min">15 minutes</option>
+        </select>
+      </label>
+    </div>
+  </fieldset>
+
+  <button type="submit" id="submit-btn">Generate</button>
+</form>
+
+<div id="progress-panel" hidden>
+  <h3>Progress</h3>
+  <ul id="progress-list"></ul>
+  <p id="progress-status"></p>
+  <div id="progress-done" hidden>
+    <a id="download-zip" href="#" role="button">Download All Files (ZIP)</a>
+    <a id="view-files" href="#" role="button" class="secondary">View Files</a>
+  </div>
+</div>
+{% endblock %}

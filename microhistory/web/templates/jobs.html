@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}MicroHistory — Jobs{% endblock %}
+
+{% block content %}
+<h2>Jobs</h2>
+
+<table id="jobs-table">
+  <thead>
+    <tr>
+      <th>Topic</th>
+      <th>Mode</th>
+      <th>Status</th>
+      <th>Created</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody id="jobs-body">
+    <tr><td colspan="5">Loading...</td></tr>
+  </tbody>
+</table>
+
+<!-- File browser modal -->
+<dialog id="files-dialog">
+  <article>
+    <header>
+      <button aria-label="Close" rel="prev" onclick="document.getElementById('files-dialog').close()"></button>
+      <h3 id="files-title">Files</h3>
+    </header>
+    <table id="files-table">
+      <thead>
+        <tr><th>File</th><th>Size</th><th></th></tr>
+      </thead>
+      <tbody id="files-body"></tbody>
+    </table>
+  </article>
+</dialog>
+{% endblock %}

@@ -1,0 +1,67 @@
+/* MicroHistory Web UI – minimal overrides for Pico CSS */
+
+nav strong {
+  font-size: 1.2rem;
+  letter-spacing: 0.05em;
+}
+
+#progress-panel {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius);
+}
+
+#progress-list {
+  list-style: none;
+  padding: 0;
+}
+
+#progress-list li {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--pico-muted-border-color);
+}
+
+#progress-list li::before {
+  content: "\2022 ";
+  margin-right: 0.5rem;
+}
+
+#progress-list li.completed::before {
+  content: "\2714 ";
+  color: var(--pico-ins-color);
+}
+
+#progress-list li.running::before {
+  content: "\25B6 ";
+  color: var(--pico-primary);
+}
+
+#progress-list li.failed::before {
+  content: "\2718 ";
+  color: var(--pico-del-color);
+}
+
+#progress-done {
+  margin-top: 1rem;
+  display: flex;
+  gap: 1rem;
+}
+
+#settings-saved {
+  color: var(--pico-ins-color);
+  margin-left: 1rem;
+  font-weight: bold;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+.status-badge.completed { background: var(--pico-ins-color); color: #fff; }
+.status-badge.running   { background: var(--pico-primary); color: #fff; }
+.status-badge.queued     { background: var(--pico-muted-color); color: #fff; }
+.status-badge.failed     { background: var(--pico-del-color); color: #fff; }

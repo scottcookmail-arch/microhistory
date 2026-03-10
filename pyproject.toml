@@ -12,6 +12,9 @@ dependencies = [
     "pydantic>=2.5,<3",
     "python-dotenv>=1.0,<2",
     "rich>=13.7,<14",
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.30,<1",
+    "jinja2>=3.1,<4",
 ]
 
 [project.optional-dependencies]
@@ -22,6 +25,7 @@ dev = [
 
 [project.scripts]
 microhistory = "microhistory.main:cli"
+microhistory-web = "microhistory.web.__main__:main"
 
 [tool.setuptools.packages.find]
 include = ["microhistory*"]

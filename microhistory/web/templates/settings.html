@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}MicroHistory — Settings{% endblock %}
+
+{% block content %}
+<h2>API Keys</h2>
+<p>Configure your API keys below. They are saved to <code>.env</code> and persist across restarts.</p>
+
+<form id="settings-form">
+  <label>
+    Google API Key
+    <input type="password" name="GOOGLE_API_KEY" placeholder="Required for image/video generation">
+    <small id="status-GOOGLE_API_KEY"></small>
+  </label>
+
+  <label>
+    ElevenLabs API Key
+    <input type="password" name="ELEVENLABS_API_KEY" placeholder="Required for voiceover narration">
+    <small id="status-ELEVENLABS_API_KEY"></small>
+  </label>
+
+  <label>
+    Runway API Key
+    <input type="password" name="RUNWAY_API_KEY" placeholder="Optional — for Runway video backend">
+    <small id="status-RUNWAY_API_KEY"></small>
+  </label>
+
+  <label>
+    ElevenLabs Voice ID
+    <input type="text" name="ELEVENLABS_VOICE_ID" placeholder="Optional — defaults to Adam narrator">
+    <small id="status-ELEVENLABS_VOICE_ID"></small>
+  </label>
+
+  <button type="submit">Save</button>
+  <span id="settings-saved" hidden>Saved!</span>
+</form>
+{% endblock %}
